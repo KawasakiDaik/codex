@@ -69,17 +69,16 @@ def calculate_eigenmode_properties(params, wavelength_eval=None):
     lambda_b = params['lambda_b']
     eta = params['eta']
     g_r = params['g_r']
-    g_i = params['g_i']
+    # g_i はポート損失から計算
+    gamma_2_a = eta * gamma_1_a
+    gamma_2_b = eta * gamma_1_b
+    g_i = np.sqrt(gamma_1_a * gamma_1_b) + np.sqrt(gamma_2_a * gamma_2_b)
     r = params['r']
     t = params['t']
     n = params['n']
     l = params['l']
     l_g = params['l_g']
     phi_m = params['phi_m']
-    
-    # gamma_2の計算（etaパラメータから）
-    gamma_2_a = eta * gamma_1_a
-    gamma_2_b = eta * gamma_1_b
     
     # エネルギーの計算
     energy_a = 1240000.0 / lambda_a  # meV
@@ -248,18 +247,23 @@ def calculate_single_mode_reflection(params, mode='a'):
         
         S_r.append(S_r_value)
     
+    S_r = np.array(S_r)
+
     # モード特性の計算
     Q = energy_mode / gamma_total
-    
+    idx_res = np.argmin(np.abs(wavelength_range - lambda_mode))
+    reflectance = np.abs(S_r[idx_res])**2 if len(S_r) > 0 else 0.0
+
     mode_props = {
         'wavelength': lambda_mode,
         'energy': energy_mode,
         'linewidth': gamma_total,
         'Q': Q,
+        'reflection_intensity': reflectance,
         'gamma_eff_at_resonance': gamma_total - 2 * gamma_2  # 共振での有効減衰率（近似値）
     }
-    
-    return np.array(S_r), mode_props
+
+    return S_r, mode_props
 
 def calculate_reflection_spectrum(params):
     """
@@ -282,7 +286,8 @@ def calculate_reflection_spectrum(params):
     energy_a = 1240000.0 / lambda_a  # meV
     energy_b = 1240000.0 / lambda_b  # meV
     g_r = params['g_r']
-    g_i = params['g_i']
+    # g_i はポート損失から計算
+    g_i = np.sqrt(gamma_1_a * gamma_1_b) + np.sqrt(gamma_2_a * gamma_2_b)
     r = params['r']
     t = params['t']
     n = params['n']
@@ -662,7 +667,7 @@ def save_to_excel(params, S_r, eigenmode_props,
                 ('lambda_a', 'Resonance wavelength mode a', 'nm'),
                 ('lambda_b', 'Resonance wavelength mode b', 'nm'),
                 ('g_r', 'Mode coupling (real part)', 'meV'),
-                ('g_i', 'Mode coupling (imaginary part)', 'meV'),
+                ('g_i (calculated)', f'{(np.sqrt(params["gamma_1_a"] * params["gamma_1_b"]) + np.sqrt(gamma_2_a * gamma_2_b)):.3f}', 'meV'),
                 ('r', 'Port coupling reflection coefficient', ''),
                 ('t', 'Port coupling transmission coefficient', ''),
                 ('n', 'Refractive index', ''),
@@ -700,6 +705,10 @@ def save_to_excel(params, S_r, eigenmode_props,
                     'Linewidth (meV)': [
                         mode_props_a['linewidth'],
                         mode_props_b['linewidth']
+                    ],
+                    'Reflectance': [
+                        mode_props_a.get('reflection_intensity', 0.0),
+                        mode_props_b.get('reflection_intensity', 0.0)
                     ],
                     'Q value': [
                         mode_props_a['Q'],
@@ -993,25 +1002,25 @@ if __name__ == "__main__":
         print("1モード解析（独立）")
         print("="*80)
         
-        print("| Mode  | Wavelength (nm) | Energy (meV) | Linewidth (meV) | Q value |")
-        print("|-------|----------------|--------------|-----------------|---------|")
-        print(f"| Mode a | {mode_props_a['wavelength']:>14.2f} | {mode_props_a['energy']:>12.4f} | "
+        print("| Mode  | Wavelength (nm) | Reflectance | Linewidth (meV) | Q value |")
+        print("|-------|----------------|------------|-----------------|---------|")
+        print(f"| Mode a | {mode_props_a['wavelength']:>14.2f} | {mode_props_a['reflection_intensity']:>11.6f} | "
               f"{mode_props_a['linewidth']:>15.3f} | {mode_props_a['Q']:>7.0f} |")
-        print(f"| Mode b | {mode_props_b['wavelength']:>14.2f} | {mode_props_b['energy']:>12.4f} | "
+        print(f"| Mode b | {mode_props_b['wavelength']:>14.2f} | {mode_props_b['reflection_intensity']:>11.6f} | "
               f"{mode_props_b['linewidth']:>15.3f} | {mode_props_b['Q']:>7.0f} |")
         
         print("\n" + "="*80)
-        print("結合モード固有値解析")
+        print("Coupled Mode Dip Analysis")
         print("="*80)
         print(f"評価波長: {eigenmode_props['evaluation_wavelength']:.1f} nm\n")
-        
-        print("| Mode  | Wavelength (nm) | Energy (meV) | Linewidth (μeV) | Q value | Reflectance |")
-        print("|-------|----------------|--------------|-----------------|---------|-------------|")
+
+        print("| Mode  | Wavelength (nm) | Reflectance | Linewidth (μeV) | Q value |")
+        print("|-------|----------------|------------|-----------------|---------|")
         
         for mode_name, mode_label in [('mode_plus', 'Mode +'), ('mode_minus', 'Mode -')]:
             mode = eigenmode_props[mode_name]
-            print(f"| {mode_label:<5} | {mode['wavelength']:>14.2f} | {mode['energy']:>12.4f} | "
-                  f"{mode['linewidth']*1000:>15.2f} | {mode['Q']:>7.0f} | {mode['reflection_intensity']:>11.6f} |")
+            print(f"| {mode_label:<5} | {mode['wavelength']:>14.2f} | {mode['reflection_intensity']:>11.6f} | "
+                  f"{mode['linewidth']*1000:>15.2f} | {mode['Q']:>7.0f} |")
         
         # パラメータサマリー
         gamma_a = 2 * (params['gamma_abs_a'] + params['gamma_1_a'] + gamma_2_a)
@@ -1026,7 +1035,8 @@ if __name__ == "__main__":
         print("="*80)
         print(f"モードa: {energy_a:.2f} meV ({params['lambda_a']:.1f} nm)")
         print(f"モードb: {energy_b:.2f} meV ({params['lambda_b']:.1f} nm)")
-        print(f"モード間結合: g = ({params['g_r']:.3f} - i{params['g_i']:.3f}) meV")
+        gi_auto = np.sqrt(params['gamma_1_a'] * params['gamma_1_b']) + np.sqrt(gamma_2_a * gamma_2_b)
+        print(f"モード間結合: g = ({params['g_r']:.3f} - i{gi_auto:.3f}) meV")
         print(f"全減衰率γ_a: {gamma_a:.3f} meV ({gamma_a*1000:.1f} μeV)")
         print(f"全減衰率γ_b: {gamma_b:.3f} meV ({gamma_b*1000:.1f} μeV)")
         
@@ -1147,7 +1157,7 @@ if __name__ == "__main__":
             ('Q_a', f'{Q_a:.0f}', ''),
             ('Q_b', f'{Q_b:.0f}', ''),
             ('g_r', f'{params["g_r"]:.3f}', 'meV'),
-            ('g_i', f'{params["g_i"]:.3f}', 'meV'),
+            ('g_i', f'{gi_auto:.3f}', 'meV'),
             ('η', f'{params["eta"]:.1f}', ''),
             ('n', f'{params["n"]:.2f}', ''),
             ('l', f'{params["l"]*1e9:.1f}', 'nm'),
