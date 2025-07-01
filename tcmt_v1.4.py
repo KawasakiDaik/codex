@@ -89,8 +89,8 @@ def calculate_eigenmode_properties(params, wavelength_eval=None):
     g_star = g_r + 1j * g_i
     
     # 全減衰率
-    gamma_a = 2 * (gamma_abs_a + gamma_1_a + gamma_2_a)
-    gamma_b = 2 * (gamma_abs_b + gamma_1_b + gamma_2_b)
+    gamma_a = (gamma_abs_a + gamma_1_a + gamma_2_a)
+    gamma_b = (gamma_abs_b + gamma_1_b + gamma_2_b)
 
     # 放射率
     gamma_rad_a = gamma_1_a + gamma_2_a
@@ -107,14 +107,14 @@ def calculate_eigenmode_properties(params, wavelength_eval=None):
     # 評価波長での位相計算
     wavelength_m = wavelength_eval * 1e-9  # m
     k = 2 * np.pi / wavelength_m
-    phi = 2 * n * l * k
+    phi = 2 * ( n * l + l_g ) * k + phi_m
     
     # ミラーの反射係数
     r_phi = np.exp(1j * phi) / (1 - r * np.exp(1j * phi))
     
     # 有効減衰率
-    gamma_a_eff = gamma_a - 2 * r_phi * gamma_2_a
-    gamma_b_eff = gamma_b - 2 * r_phi * gamma_2_b
+    gamma_a_eff = gamma_a - d_2a ** 2 * r_phi 
+    gamma_b_eff = gamma_b - d_2b ** 2 * r_phi 
     
     # 有効結合係数
     g_eff = g + r_phi * d_2a * d_2b
@@ -207,7 +207,7 @@ def calculate_single_mode_reflection(params, mode='a'):
     energy_mode = 1240000.0 / lambda_mode  # meV
     
     # 全減衰率
-    gamma_total = 2 * (gamma_abs + gamma_1 + gamma_2)
+    gamma_total = (gamma_abs + gamma_1 + gamma_2)
     
     # ポート結合係数
     d_1 = np.sqrt(2 * gamma_1)
@@ -228,10 +228,10 @@ def calculate_single_mode_reflection(params, mode='a'):
         phi = 2 * ( n * l + l_g ) * k + phi_m
         
         # ミラーの反射係数
-        r_phi = -np.exp(1j * phi) / (1 + r * np.exp(1j * phi))
+        r_phi = np.exp(1j * phi) / (1 - r * np.exp(1j * phi))
         
         # 有効減衰率
-        gamma_eff = gamma_total - 2 * r_phi * gamma_2
+        gamma_eff = gamma_total - d_2 ** 2 * r_phi 
         
         # D係数
         D = d_1 + r_phi * t * d_2
@@ -260,7 +260,7 @@ def calculate_single_mode_reflection(params, mode='a'):
         'linewidth': gamma_total,
         'Q': Q,
         'reflection_intensity': reflectance,
-        'gamma_eff_at_resonance': gamma_total - 2 * gamma_2  # 共振での有効減衰率（近似値）
+        'gamma_eff_at_resonance': np.real(gamma_eff)  # 共振での有効減衰率（近似値）
     }
 
     return S_r, mode_props
@@ -299,8 +299,8 @@ def calculate_reflection_spectrum(params):
     g_star = g_r + 1j * g_i
     
     # 全減衰率
-    gamma_a = 2 * (gamma_abs_a + gamma_1_a + gamma_2_a)
-    gamma_b = 2 * (gamma_abs_b + gamma_1_b + gamma_2_b)
+    gamma_a = (gamma_abs_a + gamma_1_a + gamma_2_a)
+    gamma_b = (gamma_abs_b + gamma_1_b + gamma_2_b)
     
     # ポート結合係数
     d_1a = np.sqrt(2 * gamma_1_a)
@@ -327,11 +327,11 @@ def calculate_reflection_spectrum(params):
         phi = 2 * n * l * k
         
         # ミラーの反射係数
-        r_phi = -np.exp(1j * phi) / (1 + r * np.exp(1j * phi))
+        r_phi = np.exp(1j * phi) / (1 - r * np.exp(1j * phi))
         
         # 有効減衰率
-        gamma_a_eff = gamma_a - 2 * r_phi * gamma_2_a
-        gamma_b_eff = gamma_b - 2 * r_phi * gamma_2_b
+        gamma_a_eff = gamma_a - d_2a ** 2 * r_phi 
+        gamma_b_eff = gamma_b - d_2b ** 2 * r_phi 
         
         # 有効結合係数
         g_eff = g + r_phi * d_2a * d_2b
@@ -844,16 +844,15 @@ if __name__ == "__main__":
         'gamma_abs_a': 10,    
         'gamma_abs_b': 2,
         'gamma_1_a': 10,
-        'gamma_1_b': 1,     
-        'eta': 0.0001,   
+        'gamma_1_b': 0.1,     
+        'eta': 0.001,   
         
         # 共振波長 [nm]
         'lambda_a': 800.0,       
         'lambda_b': 900.0,       
         
         # モード間結合 [meV]
-        'g_r': 3,            
-        'g_i': 1,       
+        'g_r': 3,                 
         
         # ポート結合の反射・透過係数（より現実的な値）
         'r': 1,                         # 部分反射
@@ -863,7 +862,7 @@ if __name__ == "__main__":
         'n': 1.37,
         'l': 1.5e-7,            
         'l_g': 0.1e-7,
-        'phi_m': -160,
+        'phi_m': -170,
         
         # 波長範囲 [nm]
         'wavelength_range': np.linspace(600, 1200, 1200)
