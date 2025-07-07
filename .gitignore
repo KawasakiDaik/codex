@@ -1,0 +1,38 @@
+# ---- macOS 共通ゴミ ---------------------------------
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+
+# ---- Python ビルド & 仮想環境 ------------------------
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+# venv をフォルダ名で除外（あなたの環境に合わせて追加）
+mayavi_venv/
+mayavi_env/
+mpl_env/
+# Poetry
+.poetry/
+
+# ---- VS Code 専用 -----------------------------------
+.vscode/
+.history/
+
+# ---- テスト / カバレッジ ----------------------------
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.cache/
+
+# ---- IDE ごみ ---------------------------------------
+.idea/
+*.sublime-project
+*.sublime-workspace
